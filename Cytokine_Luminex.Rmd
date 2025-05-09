@@ -1,0 +1,1004 @@
+---
+title: "Cytokine_Luminex Project"
+author: "Javier Munoz and Carly Batistione"
+date: "2022-05-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library (readxl)
+library (heatmap3)
+library (pheatmap)
+library (mixOmics)
+library (tidyverse)
+library(writexl)
+library (ComplexHeatmap)
+library(circlize)
+library("FactoMineR")
+library ("factoextra")
+library(car)
+library(ggpubr)
+library(rstatix)
+library(FSA)
+```
+
+```{r }
+#Load data
+data <- read_excel("~/Desktop/cytokine_luminex.xlsx", sheet = 1)
+data
+```
+
+
+```{r}
+#Check Cytokine Data
+pdf ("plots.pdf")
+hist(data$IL.10, main = "Histogram")
+boxplot(data$IL.10, main = "Boxplot")
+qqnorm(data$IL.10, main = "Normal Q-Q plot")
+
+hist(data$IL.4, main = "Histogram")
+boxplot(data$IL.4, main = "Boxplot")
+qqnorm(data$IL.4, main = "Normal Q-Q plot")
+
+hist(data$IL.6, main = "Histogram")
+boxplot(data$IL.6, main = "Boxplot")
+qqnorm(data$IL.6, main = "Normal Q-Q plot")
+
+hist(data$IL.8, main = "Histogram")
+boxplot(data$IL.8, main = "Boxplot")
+qqnorm(data$IL.8, main = "Normal Q-Q plot")
+
+hist(data$TNF.alpha, main = "Histogram")
+boxplot(data$TNF.alpha, main = "Boxplot")
+qqnorm(data$TNF.alpha, main = "Normal Q-Q plot")
+
+dev.off()
+```
+
+
+```{r }
+#Log Median Scaling  
+
+data.normalize.numerator <- log (data[-1] + 1)
+data.normalize.numerator
+
+data.numeric <- data [-1]
+median.by.column <- apply(data.numeric,2,median)
+median.by.column
+data.normalize.denominator <- log (median.by.column + 1)
+data.normalize.denominator
+
+data.normalize <- data.normalize.numerator - data.normalize.denominator
+data.normalize
+
+rownames (data.normalize) <- data$Type
+data.normalize
+
+#z-score
+data.normalize.mean <- apply(data.normalize,2,mean)
+data.normalize.mean
+
+data.normalize.sd <- apply(data.normalize,2,sd)
+data.normalize.sd
+
+zscore.data.normalize <- (data.normalize - data.normalize.mean)/data.normalize.sd
+zscore.data.normalize
+```
+
+```{r}
+#Exporting Tables
+write_xlsx(data.normalize,"data.normalize.xlsx", col_names=TRUE)
+write_xlsx(zscore.data.normalize,"zscore.data.normalize.xlsx", col_names=TRUE)
+```
+
+################################################################################
+## Exploratory Heatmaps 
+################################################################################
+
+```{r fig.width=8, fig.height=8}
+#Plotting Exploratory Heatmaps
+
+pdf(file = "plot.zscorenormalize.pdf", width=6, height=5)
+heatmap3(zscore.data.normalize, scale = "row", margins = c(8, 10), ColSideWidth = 0.1, lasRow = 1, cexRow=1.4) 
+heatmap3(zscore.data.normalize, scale = "row", margins = c(8, 10), ColSideWidth = 0.1, lasRow = 1, cexRow=1.4, Rowv=NA)
+dev.off ()
+
+pdf("plot.data.normalize.pdf")
+heatmap3(data.normalize, scale = "row", margins = c(8, 10), ColSideWidth = 0.1, lasRow = 1, cexRow=1.4) #, Rowv=NA)
+heatmap3(data.normalize, scale = "row", margins = c(8, 10), ColSideWidth = 0.1, lasRow = 1, cexRow=1.4, Rowv=NA)
+dev.off()
+
+set.seed(1)
+test <- as.matrix(data.normalize[1:32, 1:4])
+f2 = colorRamp2(seq(min(test), max(test), length = 3), c("blue", "#EEEEEE", "red"), space = "RGB")
+complex.heatmap_symbol <- Heatmap (test, col = f2,)
+complex.heatmap_symbol
+pdf ("complex.heatmap_symbol.data.normalize.pdf", width = 8, height =8)
+complex.heatmap_symbol
+dev.off()
+
+set.seed(12)
+test <- as.matrix(zscore.data.normalize)
+f2 = colorRamp2(seq(min(test), max(test), length = 3), c("blue", "#EEEEEE", "red"), space = "RGB")
+complex.heatmap_symbol <- Heatmap (test, col = f2,)
+complex.heatmap_symbol
+pdf ("complex.heatmap_symbol.pdf", width = 8, height =8)
+complex.heatmap_symbol
+dev.off()
+
+set.seed(123)
+test <- as.matrix(zscore.data.normalize[1:16, ] )
+f2 = colorRamp2(seq(min(test), max(test), length = 3), c("blue", "#EEEEEE", "red"), space = "RGB")
+complex.heatmap_symbol <- Heatmap (test, col = f2,)
+complex.heatmap_symbol
+pdf ("complex.heatmap_symbol.ha.no.col.no.pdf", width = 8, height =8)
+complex.heatmap_symbol
+dev.off()
+
+set.seed(12345)
+test <- as.matrix(zscore.data.normalize[9:24, ])
+f2 = colorRamp2(seq(min(test), max(test), length = 3), c("blue", "#EEEEEE", "red"), space = "RGB")
+complex.heatmap_symbol <- Heatmap (test, col = f2,)
+complex.heatmap_symbol
+pdf ("complex.heatmap_symbol.ha.no.ha.cyto.pdf", width = 8, height =8)
+complex.heatmap_symbol
+dev.off()
+
+set.seed(12346)
+test <- as.matrix(zscore.data.normalize[17:32, ] )
+f2 = colorRamp2(seq(min(test), max(test), length = 3), c("blue", "#EEEEEE", "red"), space = "RGB")
+complex.heatmap_symbol <- Heatmap (test, col = f2,)
+complex.heatmap_symbol
+pdf ("complex.heatmap_symbol.ha.no.col.no.pdf", width = 8, height =8)
+complex.heatmap_symbol
+dev.off()
+
+set.seed(12347)
+test <- as.matrix(zscore.data.normalize[c(1:8,25:32), ])
+f2 = colorRamp2(seq(min(test), max(test), length = 3), c("blue", "#EEEEEE", "red"), space = "RGB")
+complex.heatmap_symbol <- Heatmap (test, col = f2,)
+complex.heatmap_symbol
+pdf ("complex.heatmap_symbol.ha.no.col.no.pdf", width = 8, height =8)
+complex.heatmap_symbol
+dev.off()
+```
+
+
+################################################################################
+## Data Dimensionality Reduction by PCA 
+################################################################################
+
+```{r}
+group <- c("col_no","col_no","col_no","col_no","col_no","col_no","col_no","col_no","ha_no","ha_no","ha_no","ha_no","ha_no","ha_no","ha_no","ha_no","ha_cyto","ha_cyto","ha_cyto","ha_cyto","ha_cyto","ha_cyto","ha_cyto","ha_cyto","col_cyto","col_cyto","col_cyto","col_cyto","col_cyto","col_cyto","col_cyto","col_cyto","no_media","cyto_media")
+group <- as_factor (group)
+group
+
+data.normalize
+res.pca = PCA(data.normalize, scale.unit=TRUE, ncp=40, graph=T)
+res.pca$var$contrib
+plotellipses(res.pca)
+as.data.frame (res.pca$var$contrib)
+as.data.frame (res.pca$var$coord)
+as.data.frame (res.pca$ind)
+res.pca$svd
+
+res.pca <- prcomp(data.normalize, scale = FALSE)
+fviz_eig(res.pca)
+```
+
+```{r}
+fviz_pca_ind(res.pca,
+             col.ind = "cos2", # Color by the quality of representation
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = T     # Avoid text overlapping
+             )
+```
+
+
+```{r}
+pdf( file = "PCA.pdf")
+p <- fviz_pca_ind(res.pca,
+             col.ind = group, # color by groups
+             palette = c("#00AFBB",  "#FC4E07", "#095119", "#6B3FA0"),
+             addEllipses = TRUE, # Concentration ellipses
+             ellipse.type = "confidence",
+             legend.title = "Groups",
+             repel = TRUE, pointsize = 6)
+
+p + scale_colour_manual (values= c(col_no = "#FC4E07", ha_no = "#00AFBB", ha_cyto = "#095119", col_cyto = "#6B3FA0")) + scale_fill_manual(values= c(col_no = "#FC4E07", ha_no = "#00AFBB", ha_cyto = "#095119", col_cyto = "#6B3FA0")) + theme_minimal() 
+dev.off()
+
+p <- fviz_pca_ind(res.pca,
+             col.ind = group, # color by groups
+             palette = c("#00AFBB",  "#FC4E07", "#095119", "#6B3FA0"),
+             addEllipses = TRUE, # Concentration ellipses
+             ellipse.type = "confidence",
+             legend.title = "Groups",
+             repel = TRUE, pointsize = 6)
+
+p + scale_colour_manual (values= c(col_no = "#FC4E07", ha_no = "#00AFBB", ha_cyto = "#095119", col_cyto = "#6B3FA0")) + scale_fill_manual(values= c(col_no = "#FC4E07", ha_no = "#00AFBB", ha_cyto = "#095119", col_cyto = "#6B3FA0")) + theme_minimal() 
+```
+
+```{r}
+pdf( file = "PCA.biplot.pdf")
+c <- fviz_pca_biplot(res.pca, repel = TRUE,
+                col.var = "#2E9FDF", # Variables color
+               col.ind = group, # color by groups
+                palette = c("#00AFBB",  "#FC4E07", "#095119", "#6B3FA0"),pointsize = 6
+                )
+
+c + scale_colour_manual (values= c(col_no = "#FC4E07", ha_no = "#00AFBB", ha_cyto = "#095119", col_cyto = "#6B3FA0")) + scale_fill_manual(values= c(col_no = "#FC4E07", ha_no = "#00AFBB", ha_cyto = "#095119", col_cyto = "#6B3FA0")) + theme_minimal()
+dev.off()
+
+c <- fviz_pca_biplot(res.pca, repel = TRUE,
+                col.var = "#2E9FDF", # Variables color
+               col.ind = group, # color by groups
+                palette = c("#00AFBB",  "#FC4E07", "#095119", "#6B3FA0"),pointsize = 6
+                )
+
+c + scale_colour_manual (values= c(col_no = "#FC4E07", ha_no = "#00AFBB", ha_cyto = "#095119", col_cyto = "#6B3FA0")) + scale_fill_manual(values= c(col_no = "#FC4E07", ha_no = "#00AFBB", ha_cyto = "#095119", col_cyto = "#6B3FA0")) + theme_minimal()
+```
+
+```{r}
+# Eigenvalues
+eig.val <- get_eigenvalue(res.pca)
+eig.val
+  
+# Results for Variables
+res.var <- get_pca_var(res.pca)
+res.var$coord          # Coordinates
+res.var$contrib        # Contributions to the PCs
+res.var$cos2           # Quality of representation 
+
+# Results for individuals
+res.ind <- get_pca_ind(res.pca)
+res.ind$coord          # Coordinates
+res.ind$contrib        # Contributions to the PCs
+res.ind$cos2           # Quality of representation 
+
+head (res.var$coord)
+```
+
+################################################################################
+## Data Dimensionality Reduction by PCA data.normalize.transpose
+################################################################################
+
+```{r}
+data.normalize.transpose
+
+res.pca = PCA(data.normalize.transpose, scale.unit=TRUE, ncp=40, graph=T)
+res.pca$var$contrib
+plotellipses(res.pca)
+
+res.pca <- prcomp(data.normalize.transpose, scale = FALSE)
+fviz_eig(res.pca)
+
+fviz_pca_ind(res.pca,
+             col.ind = "cos2", # Color by the quality of representation
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = T     # Avoid text overlapping
+             )
+```
+
+```{r}
+group2 <- c("IL.10","IL.4","IL.6","IL.8","TNF.alpha")
+group2 <- as_factor (group2)
+group2
+
+pdf( file = "PCA.cytokines.pdf")
+p <- fviz_pca_ind(res.pca,
+             col.ind = group2, # color by groups
+             palette = c("#00AFBB",  "#FC4E07", "#095119", "#6B3FA0"),
+             addEllipses = TRUE, # Concentration ellipses
+             ellipse.type = "confidence",
+             legend.title = "Groups",
+             repel = TRUE
+             )
+
+p + scale_colour_manual (values= c(IL.10 = "#FC4E07", IL.4 = "#00AFBB", IL.6 = "#095119", IL.8 = "#6B3FA0")) + scale_fill_manual(values= c(IL.10 = "#FC4E07", IL.4 = "#00AFBB", IL.6 = "#095119", IL.8 = "#6B3FA0")) + theme_minimal()
+dev.off()
+
+fviz_pca_biplot(res.pca, repel = TRUE,
+                col.var = "#2E9FDF", # Variables color
+                col.ind = "#696969"  # Individuals color
+                )
+```
+
+```{r}
+# Eigenvalues
+eig.val <- get_eigenvalue(res.pca)
+eig.val
+  
+# Results for Variables
+res.var <- get_pca_var(res.pca)
+res.var$coord          # Coordinates
+res.var$contrib        # Contributions to the PCs
+res.var$cos2           # Quality of representation 
+# Results for individuals
+res.ind <- get_pca_ind(res.pca)
+res.ind$coord          # Coordinates
+res.ind$contrib        # Contributions to the PCs
+res.ind$cos2           # Quality of representation 
+```
+################################################################################
+## Statistical Analysis data.normalize
+################################################################################
+
+```{r}
+data
+data.normalize
+test.treatment <- as.factor (c("col.no", "col.no", "col.no", "col.no", "col.no", "col.no", "col.no", "col.no", "ha.no", "ha.no", "ha.no", "ha.no", "ha.no", "ha.no", "ha.no", "ha.no", "ha.cyto", "ha.cyto", "ha.cyto", "ha.cyto", "ha.cyto", "ha.cyto", "ha.cyto", "ha.cyto", "col.cyto", "col.cyto", "col.cyto", "col.cyto", "col.cyto", "col.cyto", "col.cyto", "col.cyto", "cyto.media", "no.media"))
+data.normalize <- cbind (data.normalize, test.treatment)
+data.normalize
+data.normalize <- data.normalize [1:32, ]
+data.normalize
+```
+
+```{r}
+# Compute the analysis of variance
+res.aov.IL.10 <- aov(IL.10 ~ test.treatment, data = data.normalize)
+summary(res.aov.IL.10)
+
+res.aov.IL.4 <- aov(IL.4 ~ test.treatment, data = data.normalize)
+summary(res.aov.IL.4)
+
+res.aov.IL.6 <- aov(IL.6 ~ test.treatment, data = data.normalize)
+summary(res.aov.IL.6)
+
+res.aov.IL.8 <- aov(IL.8 ~ test.treatment, data = data.normalize)
+summary(res.aov.IL.8)
+
+res.aov.TNF.alpha <- aov(TNF.alpha ~ test.treatment, data = data.normalize)
+summary(res.aov.TNF.alpha)
+
+TukeyHSD(res.aov.IL.6)
+TukeyHSD(res.aov.IL.8)
+TukeyHSD(res.aov.TNF.alpha)
+
+pairwise.t.test(data.normalize$IL.6, data.normalize$test.treatment,
+                 p.adjust.method = "BH")
+pairwise.t.test(data.normalize$IL.8, data.normalize$test.treatment,
+                 p.adjust.method = "BH")
+pairwise.t.test(data.normalize$TNF.alpha, data.normalize$test.treatment,
+                 p.adjust.method = "BH")
+```
+
+```{r}
+plot(res.aov.IL.4, 1)
+plot(res.aov.IL.6, 1)
+plot(res.aov.IL.8, 1)
+plot(res.aov.IL.10, 1)
+plot(res.aov.TNF.alpha, 1)
+
+leveneTest(IL.4 ~ test.treatment, data = data.normalize)
+leveneTest(IL.6 ~ test.treatment, data = data.normalize)
+leveneTest(IL.8 ~ test.treatment, data = data.normalize)
+leveneTest(IL.10 ~ test.treatment, data = data.normalize)
+leveneTest(TNF.alpha ~ test.treatment, data = data.normalize)
+
+pairwise.t.test(data.normalize$IL.6, data.normalize$test.treatment,
+                 p.adjust.method = "BH", pool.sd = FALSE)
+pairwise.t.test(data.normalize$IL.8, data.normalize$test.treatment,
+                 p.adjust.method = "BH", pool.sd = FALSE)
+pairwise.t.test(data.normalize$TNF.alpha, data.normalize$test.treatment,
+                 p.adjust.method = "BH", pool.sd = FALSE)
+```
+
+
+```{r}
+compare_means(IL.4 ~ test.treatment, data = data.normalize , p.adjust.method ="BH", method = "t.test")
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.4", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24),  method = "t.test")+ # Add pairwise comparisons p-value
+  stat_compare_means(method = "anova", label.y = 30)     # Add global p-value
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.4", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24) ,  label = "p.signif",  method = "t.test")+ # Add pairwise comparisons p-value
+  stat_compare_means(method = "anova", label.y = 30)     # Add global p-value
+
+compare_means(IL.6 ~ test.treatment, data = data.normalize, p.adjust.method ="BH", method = "t.test")
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.6", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24),  method = "t.test")+ # Add pairwise comparisons p-value
+  stat_compare_means(method = "anova", label.y = 30)     # Add global p-value
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.6", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24) ,  label = "p.signif",  method = "t.test")+ # Add pairwise comparisons p-value
+  stat_compare_means(method = "anova", label.y = 30)     # Add global p-value
+
+compare_means(IL.8 ~ test.treatment, data = data.normalize, p.adjust.method ="BH", method = "t.test")
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.8", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(12,15,18,21,24,27), method = "t.test")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30, method = "anova")     # Add global p-value
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.8", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(12,15,18,21,24,27) ,  label = "p.signif", method = "t.test")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30, method = "anova")     # Add global p-value
+
+compare_means(IL.10 ~ test.treatment, data = data.normalize, p.adjust.method ="BH", method = "t.test")
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.10", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24), method = "t.test")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30, method = "anova")     # Add global p-value
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.10", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24) ,  label = "p.signif", method = "t.test")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30, method = "anova")     # Add global p-value
+
+compare_means(TNF.alpha ~ test.treatment, data = data.normalize, p.adjust.method ="BH", method = "t.test")
+# Visualize: Specify the comparisons you want
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "TNF.alpha", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(12,15,18,21,24,27), method = "t.test")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30, method = "anova")     # Add global p-value
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "TNF.alpha", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(12,15,18,21,24,27) ,  label = "p.signif", method = "t.test")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30, method = "anova")     # Add global p-value
+```
+
+```{r}
+plot(res.aov.IL.4, 2)
+plot(res.aov.IL.6, 2)
+plot(res.aov.IL.8, 2)
+plot(res.aov.IL.10, 2)
+plot(res.aov.TNF.alpha, 2)
+
+aov_residuals <- residuals(object = res.aov.IL.4 )
+shapiro.test(x = aov_residuals )
+
+aov_residuals <- residuals(object = res.aov.IL.6 )
+shapiro.test(x = aov_residuals )
+
+aov_residuals <- residuals(object = res.aov.IL.8 )
+shapiro.test(x = aov_residuals )
+
+aov_residuals <- residuals(object = res.aov.IL.10 )
+shapiro.test(x = aov_residuals )
+
+aov_residuals <- residuals(object = res.aov.TNF.alpha )
+shapiro.test(x = aov_residuals )
+```
+
+```{r}
+kruskal.test(IL.4 ~ test.treatment, data = data.normalize)
+kruskal.test(IL.6 ~ test.treatment, data = data.normalize)
+kruskal.test(IL.8 ~ test.treatment, data = data.normalize)
+kruskal.test(IL.10 ~ test.treatment, data = data.normalize)
+kruskal.test(TNF.alpha ~ test.treatment, data = data.normalize)
+
+pairwise.wilcox.test(data.normalize$IL.4 , data.normalize$test.treatment,p.adjust.method = "BH")
+pairwise.wilcox.test(data.normalize$IL.6 , data.normalize$test.treatment,p.adjust.method = "BH")
+pairwise.wilcox.test(data.normalize$IL.8 , data.normalize$test.treatment,p.adjust.method = "BH")
+pairwise.wilcox.test(data.normalize$IL.10 , data.normalize$test.treatment,p.adjust.method = "BH")
+pairwise.wilcox.test(data.normalize$TNF.alpha , data.normalize$test.treatment,p.adjust.method = "BH")
+
+dunnTest (data.normalize$`IL.4`, data.normalize$test.treatment,
+                 method = "bonferroni")
+dunnTest (data.normalize$`IL.6`, data.normalize$test.treatment,
+                 method = "bonferroni")
+dunnTest (data.normalize$`IL.8`, data.normalize$test.treatment,
+                 method = "bonferroni")
+dunnTest (data.normalize$`IL.10`, data.normalize$test.treatment,
+                 method = "bonferroni")
+dunnTest (data.normalize$`TNF.alpha`, data.normalize$test.treatment,
+                 method = "bonferroni")
+```
+
+
+```{r}
+p <- ggplot (data.normalize, aes(x=test.treatment, y= `IL.10`, fill=test.treatment)) + geom_boxplot(width=0.5) + theme_classic()+ labs(x="Media Treatment", y = "IL-10 (pg/ml)")
+p + scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9", "#578899")) + geom_jitter(color="black", size=1) +theme(axis.text.x=element_text(size=15), axis.title.x=element_blank (), axis.text.y=element_text(size=15), axis.title.y=element_text(size=15))
+ggsave("plot.IL4.data.normalize.pdf", units="in", width=6, height=5, dpi=350)
+p <- ggplot (data.normalize, aes(x=test.treatment, y= `IL.4`, fill=test.treatment)) + geom_boxplot(width=0.5) + theme_classic()+ labs(x="Media Treatment", y = "IL-4 (pg/ml)")
+p + scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9", "#578899")) + geom_jitter(color="black", size=1) +theme(axis.text.x=element_text(size=15), axis.title.x=element_blank (), axis.text.y=element_text(size=15), axis.title.y=element_text(size=15))
+ggsave("plot.IL4.data.normalize.pdf", units="in", width=6, height=5, dpi=350)
+p <- ggplot (data.normalize, aes(x=test.treatment, y= `IL.6`, fill = test.treatment)) + geom_boxplot(width=0.5) + theme_classic()+ labs(x="Media Treatment", y = "IL-6 (pg/ml)")
+p + scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9", "#578899")) + geom_jitter(color="black", size=1) +theme(axis.text.x=element_text(size=15), axis.title.x=element_blank (), axis.text.y=element_text(size=15), axis.title.y=element_text(size=15))
+ggsave("plot.IL6.data.normalize.pdf", units="in", width=6, height=5, dpi=350)
+p <- ggplot (data.normalize, aes(x=test.treatment, y= `IL.8`, fill = test.treatment)) + geom_boxplot(width=0.5) + theme_classic()+ labs(x="Media Treatment", y = "IL-8 (pg/ml)")
+p + scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9", "#578899")) + geom_jitter(color="black", size=1) +theme(axis.text.x=element_text(size=15), axis.title.x=element_blank (), axis.text.y=element_text(size=15), axis.title.y=element_text(size=15))  
+ggsave("plot.IL8.data.normalize.pdf", units="in", width=6, height=5, dpi=350)
+p <- ggplot (data.normalize, aes(x=test.treatment, y= `TNF.alpha`, fill = test.treatment)) + geom_boxplot(width=0.5) + theme_classic()+ labs(y = "TNF-alpha (pg/ml)")
+p + scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9", "#578899")) + geom_jitter(color="black", size=1) +theme(axis.text.x=element_text(size=15), axis.title.x=element_blank (), axis.text.y=element_text(size=15), axis.title.y=element_text(size=15)) + theme(legend.title=element_blank())
+ggsave("plot.TNF.datadata.normalize.pdf", units="in", width=6, height=5, dpi=350)
+```
+
+```{r}
+bp <- ggbarplot(
+  data.normalize, x="test.treatment", y= "IL.4", fill = "test.treatment",
+  palette = "npg", add = "mean_sd",
+  position = position_dodge(0.8)
+)
+bp +
+  geom_pwc(
+    aes(group = test.treatment), tip.length = 0,
+    method = "dunn_test", label = "p.adj",
+    bracket.nudge.y = -0.08
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))
+```
+
+```{r}
+bp <- ggbarplot(
+  data.normalize, x="test.treatment", y= "IL.6", fill = "test.treatment",
+  palette = "npg", add = "mean_sd",
+  position = position_dodge(0.8)
+)
+bp +
+  geom_pwc(
+    aes(group = test.treatment), tip.length = 0,
+    method = "dunn_test", label = "p.adj",
+    bracket.nudge.y = -0.08
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))
+
+bp <- ggbarplot(
+  data.normalize, x="test.treatment", y= "IL.8", fill = "test.treatment",
+  palette = "npg", add = "mean_sd",
+  position = position_dodge(0.8)
+)
+bp +
+  geom_pwc(
+    aes(group = test.treatment), tip.length = 0,
+    method = "dunn_test", label = "p.adj",
+    bracket.nudge.y = -0.01
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))
+
+bp <- ggbarplot(
+  data.normalize, x="test.treatment", y= "IL.10", fill = "test.treatment",
+  palette = "npg", add = "mean_sd",
+  position = position_dodge(0.8)
+)
+bp +
+  geom_pwc(
+    aes(group = test.treatment), tip.length = 0,
+    method = "dunn_test", label = "p.adj",
+    bracket.nudge.y = -0.08
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))
+
+bp <- ggbarplot(
+  data.normalize, x="test.treatment", y= "TNF.alpha", fill = "test.treatment",
+  palette = "npg", add = "mean_sd",
+  position = position_dodge(0.8)
+)
+bp +
+  geom_pwc(
+    aes(group = test.treatment), tip.length = 0,
+    method = "dunn_test", label = "p.adj",
+    bracket.nudge.y = -0.08
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))
+```
+
+```{r}
+compare_means(IL.4 ~ test.treatment, data = data.normalize, p.adjust.method ="BH", method = "wilcox.test")
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.4", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24))+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+my_comparisons <- list( c("col.cyto", "col.no"), c("ha.cyto", "ha.no"), c("col.cyto", "ha.cyto"), c("col.no", "ha.no"))
+ggboxplot(data.normalize, y = "IL.4", x = "test.treatment",
+          fill = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(5,6,7,9) ,  label = "p.signif") + # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 10)     # Add global p-value
+ggsave("plot.IL.4.pdf", units="in", width=6, height=5, dpi=350)
+
+compare_means(IL.6 ~ test.treatment, data = data.normalize, p.adjust.method ="BH", method = "wilcox.test")
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.6", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24))+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+my_comparisons <- list( c("col.cyto", "col.no"), c("ha.cyto", "ha.no"), c("col.cyto", "ha.cyto"), c("col.no", "ha.no"))
+ggboxplot(data.normalize, y = "IL.6", x = "test.treatment",
+          fill = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(7,8,9,10.5) ,  label = "p.signif")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 10.5)     # Add global p-value
+ggsave("plot.IL.6.pdf", units="in", width=6, height=5, dpi=350)
+
+compare_means(IL.8 ~ test.treatment, data = data.normalize, p.adjust.method ="BH", method = "wilcox.test")
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.8", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24))+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+my_comparisons <- list( c("col.cyto", "col.no"), c("ha.cyto", "ha.no"), c("col.cyto", "ha.cyto"), c("col.no", "ha.no"))
+ggboxplot(data.normalize, y = "IL.8", x = "test.treatment",
+          fill = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(8.3,9,10,11.3) ,  label = "p.signif")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 12)     # Add global p-value
+ggsave("plot.IL.8.pdf", units="in", width=6, height=5, dpi=350)
+
+compare_means(IL.10 ~ test.treatment, data = data.normalize, p.adjust.method ="BH", method = "wilcox.test")
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.10", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24))+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+my_comparisons <- list( c("col.cyto", "col.no"), c("ha.cyto", "ha.no"), c("col.cyto", "ha.cyto"), c("col.no", "ha.no"))
+ggboxplot(data.normalize, y = "IL.10", x = "test.treatment",
+          fill = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(2.3,3,4,5.3) ,  label = "p.signif")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y =6)     # Add global p-value
+ggsave("plot.IL.10.pdf", units="in", width=6, height=5, dpi=350)
+```
+
+
+
+```{r}
+library(ggpattern)
+data.normalize$test.treatment <- factor(data.normalize$test.treatment, levels = c("col.no", "ha.no", "col.cyto", "ha.cyto"))
+
+compare_means(TNF.alpha ~ test.treatment, data = data.normalize, p.adjust.method ="BH", method = "wilcox.test")
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "TNF.alpha", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(12,15,18,21,24,27))+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+
+my_colors <- c("#FDE724", "#25C6B8", "#FDE724", "#25C6B8")
+stripes <- c('no', 'no', 'yes', 'yes')
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("ha.cyto", "ha.no"), c("col.cyto", "ha.cyto"), c("col.no", "ha.no"))
+ggboxplot(data.normalize, y = "TNF.alpha", x = "test.treatment",
+          fill = "test.treatment", palette = my_colors)+ geom_boxplot_pattern (pattern_fill = "black", alpha = 0, pattern_alpha = 0.5, pattern_size = 0.050, color = "transparent",size = 0.005, pattern_spacing = 0.02)+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(12,15,18,21,24,27) ,  label = "p.signif")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+ggsave("plot.TNF.pdf", units="in", width=6, height=5, dpi=350)
+
+compare_means(IL.4 ~ test.treatment, data = data.normalize, p.adjust.method ="BH", method = "t.test")
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.4", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24))+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+
+my_colors <- c("#FDE724", "#25C6B8", "#FDE724", "#25C6B8")
+stripes <- c('no', 'no', 'yes', 'yes')
+my_comparisons <- list( c("col.cyto", "col.no"), c("ha.cyto", "ha.no"), c("col.cyto", "ha.cyto"), c("col.no", "ha.no"))
+ggboxplot(data.normalize, y = "IL.4", x = "test.treatment",
+          fill = "test.treatment", palette = my_colors)+ geom_boxplot_pattern (pattern_fill = "black", alpha = 0, pattern_alpha = 0.5, pattern_size = 0.050, color = "transparent",size = 0.005, pattern_spacing = 0.02)+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(5,6,7,9) ,  label = "p.signif") + # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 10)     # Add global p-value
+ggsave("plot.IL.4.pdf", units="in", width=6, height=5, dpi=350)
+
+compare_means(IL.6 ~ test.treatment, data = data.normalize, p.adjust.method ="BH", method = "t.test")
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.6", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24))+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+
+
+my_colors <- c("#FDE724", "#25C6B8", "#FDE724", "#25C6B8")
+stripes <- c('no', 'no', 'yes', 'yes')
+
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("ha.cyto", "ha.no"), c("col.cyto", "ha.cyto"), c("col.no", "ha.no"))
+ggboxplot(data.normalize, y = "IL.6", x = "test.treatment",
+          fill = "test.treatment", palette = my_colors)+ geom_boxplot_pattern (pattern_fill = "black", alpha = 0, pattern_alpha = 0.5, pattern_size = 0.050, color = "transparent",size = 0.005, pattern_spacing = 0.02)+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(7,8,9,10.5) ,  label = "p.signif")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 10.5)     # Add global p-value
+ggsave("plot.IL.6.pdf", units="in", width=6, height=5, dpi=350)
+
+compare_means(IL.8 ~ test.treatment, data = data.normalize, p.adjust.method ="BH", method = "t.test")
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.8", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24))+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+
+
+my_colors <- c("#FDE724", "#25C6B8", "#FDE724", "#25C6B8")
+stripes <- c('no', 'no', 'yes', 'yes')
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("ha.cyto", "ha.no"), c("col.cyto", "ha.cyto"), c("col.no", "ha.no"))
+ggboxplot(data.normalize, y = "IL.8", x = "test.treatment",
+          fill = "test.treatment", palette = my_colors)+ geom_boxplot_pattern (pattern_fill = "black", alpha = 0, pattern_alpha = 0.5, pattern_size = 0.050, color = "transparent",size = 0.005, pattern_spacing = 0.02)+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(8.3,9,10,11.3) ,  label = "p.signif")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 12)     # Add global p-value
+ggsave("plot.IL.8.pdf", units="in", width=6, height=5, dpi=350)
+
+compare_means(IL.10 ~ test.treatment, data = data.normalize, p.adjust.method ="BH", method = "t.test")
+# Visualize: Specify the comparisons you want
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "IL.10", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24))+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+
+
+my_colors <- c("#FDE724", "#25C6B8", "#FDE724", "#25C6B8")
+stripes <- c('no', 'no', 'yes', 'yes')
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("ha.cyto", "ha.no"), c("col.cyto", "ha.cyto"), c("col.no", "ha.no"))
+ggboxplot(data.normalize, y = "IL.10", x = "test.treatment",
+          fill = "test.treatment", palette = my_colors)+ geom_boxplot_pattern (pattern_fill = "black", alpha = 0, pattern_alpha = 0.5, pattern_size = 0.050, color = "transparent",size = 0.005, pattern_spacing = 0.02)+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(2.3,3,4,5.3) ,  label = "p.signif")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y =6)     # Add global p-value
+ggsave("plot.IL.10.pdf", units="in", width=6, height=5, dpi=350)
+
+compare_means(TNF.alpha ~ test.treatment, data = data.normalize, p.adjust.method ="BH", method = "t.test")
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data.normalize, y = "TNF.alpha", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(12,15,18,21,24,27))+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+
+
+my_colors <- c("#FDE724", "#25C6B8", "#FDE724", "#25C6B8")
+stripes <- c('no', 'no', 'yes', 'yes')
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("ha.cyto", "ha.no"), c("col.cyto", "ha.cyto"), c("col.no", "ha.no"))
+ggboxplot(data.normalize, y = "TNF.alpha", x = "test.treatment",
+          fill = "test.treatment", palette = my_colors)+ geom_boxplot_pattern (pattern_fill = "black", alpha = 0, pattern_alpha = 0.5, pattern_size = 0.050, color = "transparent",size = 0.005, pattern_spacing = 0.02)+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(12,15,18,21,24,27) ,  label = "p.signif")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+ggsave("plot.TNF.pdf", units="in", width=6, height=5, dpi=350)
+```
+
+
+```{r}
+data$test.treatment <- factor(test.treatment, levels = c("col.no", "ha.no", "col.cyto", "ha.cyto"))
+data <- data [1:32, ]
+data
+
+library(ggpattern)
+
+data$test.treatment <- factor(data$test.treatment, levels = c("col.no", "ha.no", "col.cyto", "ha.cyto"))
+
+compare_means(TNF.alpha ~ test.treatment, data = data, p.adjust.method ="BH", method = "wilcox.test")
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data, y = "TNF.alpha", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(12,15,18,21,24,27))+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+
+my_colors <- c("#FDE724", "#25C6B8", "#FDE724", "#25C6B8")
+stripes <- c('no', 'no', 'yes', 'yes')
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("ha.cyto", "ha.no"), c("col.cyto", "ha.cyto"), c("col.no", "ha.no"))
+ggboxplot(data, y = "TNF.alpha", x = "test.treatment",
+          fill = "test.treatment", palette = my_colors)+ geom_boxplot_pattern (pattern_fill = "black", alpha = 0, pattern_alpha = 0.5, pattern_size = 0.050, color = "transparent",size = 0.005, pattern_spacing = 0.02)+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(50012,60115,70218,80321,90424,100527) ,  label = "p.signif")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 100000)     # Add global p-value
+ggsave("plot.TNF.raw.pdf", units="in", width=6, height=5, dpi=350)
+
+compare_means(IL.4 ~ test.treatment, data = data, p.adjust.method ="BH", method = "t.test")
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data, y = "IL.4", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24))+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+
+my_colors <- c("#FDE724", "#25C6B8", "#FDE724", "#25C6B8")
+stripes <- c('no', 'no', 'yes', 'yes')
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("ha.cyto", "ha.no"), c("col.cyto", "ha.cyto"), c("col.no", "ha.no"))
+ggboxplot(data, y = "IL.4", x = "test.treatment",
+          fill = "test.treatment", palette = my_colors)+ geom_boxplot_pattern (pattern_fill = "black", alpha = 0, pattern_alpha = 0.5, pattern_size = 0.050, color = "transparent",size = 0.005, pattern_spacing = 0.02)+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(11,12,13,14) ,  label = "p.signif") + # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 18)     # Add global p-value
+ggsave("plot.IL.4.raw.pdf", units="in", width=6, height=5, dpi=350)
+
+compare_means(IL.6 ~ test.treatment, data = data, p.adjust.method ="BH", method = "t.test")
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data, y = "IL.6", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24))+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+
+
+my_colors <- c("#FDE724", "#25C6B8", "#FDE724", "#25C6B8")
+stripes <- c('no', 'no', 'yes', 'yes')
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("ha.cyto", "ha.no"), c("col.cyto", "ha.cyto"), c("col.no", "ha.no"))
+ggboxplot(data, y = "IL.6", x = "test.treatment",
+          fill = "test.treatment", palette = my_colors)+ geom_boxplot_pattern (pattern_fill = "black", alpha = 0, pattern_alpha = 0.5, pattern_size = 0.050, color = "transparent",size = 0.005, pattern_spacing = 0.02)+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(4000,5000,6000,7000) ,  label = "p.signif")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 8000)     # Add global p-value
+ggsave("plot.IL.6.raw.pdf", units="in", width=6, height=5, dpi=350)
+
+compare_means(IL.8 ~ test.treatment, data = data, p.adjust.method ="BH", method = "t.test")
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data, y = "IL.8", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24))+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+
+
+my_colors <- c("#FDE724", "#25C6B8", "#FDE724", "#25C6B8")
+stripes <- c('no', 'no', 'yes', 'yes')
+
+my_comparisons <- list( c("col.cyto", "col.no"), c("ha.cyto", "ha.no"), c("col.cyto", "ha.cyto"), c("col.no", "ha.no"))
+ggboxplot(data, y = "IL.8", x = "test.treatment",
+          fill = "test.treatment", palette = my_colors)+ geom_boxplot_pattern (pattern_fill = "black", alpha = 0, pattern_alpha = 0.5, pattern_size = 0.050, color = "transparent",size = 0.005, pattern_spacing = 0.02)+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(10000,11000,12000,13000) ,  label = "p.signif")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 15000)     # Add global p-value
+ggsave("plot.IL.8.raw.pdf", units="in", width=6, height=5, dpi=350)
+
+compare_means(IL.10 ~ test.treatment, data = data, p.adjust.method ="BH", method = "t.test")
+my_comparisons <- list( c("col.cyto", "col.no"), c("col.cyto", "ha.cyto"), c("col.cyto", "ha.no"), c("col.no", "ha.cyto"), c("col.no", "ha.no"), c("ha.cyto", "ha.no"))
+ggboxplot(data, y = "IL.10", x = "test.treatment",
+          color = "test.treatment", palette = "jco")+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9,12,15,18,21,24))+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y = 30)     # Add global p-value
+
+
+my_colors <- c("#FDE724", "#25C6B8", "#FDE724", "#25C6B8")
+stripes <- c('no', 'no', 'yes', 'yes')
+my_comparisons <- list( c("col.cyto", "col.no"), c("ha.cyto", "ha.no"), c("col.cyto", "ha.cyto"), c("col.no", "ha.no"))
+ggboxplot(data, y = "IL.10", x = "test.treatment",
+          fill = "test.treatment", palette = my_colors)+ geom_boxplot_pattern (pattern_fill = "black", alpha = 0, pattern_alpha = 0.5, pattern_size = 0.050, color = "transparent",size = 0.005, pattern_spacing = 0.02)+ 
+  stat_compare_means(comparisons = my_comparisons, label.y = c(15,16,17,18) ,  label = "p.signif")+ # Add pairwise comparisons p-value
+  stat_compare_means(label.y =20)     # Add global p-value
+ggsave("plot.IL.10.raw.pdf", units="in", width=6, height=5, dpi=350)
+```
+
+
+################################################################################
+## Univariate Linear Modeling
+################################################################################
+
+```{r}
+data.normalize
+
+covariate_hyaluronic <- (c(0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0))
+covariate_hyaluronic
+covariate_cytokine <- (c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1))
+covariate_cytokine
+
+m1 <- lm (data.normalize$IL.10 ~ covariate_hyaluronic + covariate_cytokine)
+summary (m1)
+
+m1 <- lm (data.normalize$IL.4 ~ covariate_hyaluronic + covariate_cytokine )
+summary (m1)
+
+m1 <- lm (data.normalize$IL.6 ~ covariate_hyaluronic + covariate_cytokine )
+summary (m1)
+
+m1 <- lm (data.normalize$IL.8 ~ covariate_hyaluronic + covariate_cytokine )
+summary (m1)
+```
+
+```{r}
+mIL10.reduced <- lm (data.normalize$IL.10 ~ covariate_hyaluronic + covariate_cytokine + covariate_cytokine*covariate_hyaluronic)
+summary (mIL10.reduced)
+
+mIL4.reduced <- lm (data.normalize$IL.4 ~ covariate_hyaluronic + covariate_cytokine + covariate_cytokine*covariate_hyaluronic)
+summary (mIL4.reduced)
+
+mIL6.reduced <- lm (data.normalize$IL.6 ~ covariate_hyaluronic + covariate_cytokine + covariate_cytokine*covariate_hyaluronic)
+summary (mIL6.reduced)
+
+mIL8.reduced <- lm (data.normalize$IL.8 ~ covariate_hyaluronic + covariate_cytokine + covariate_cytokine*covariate_hyaluronic)
+summary (mIL8.reduced)
+```
+
+```{r fig.width=12, fig.height=12, fig.fullwidth=TRUE, dpi = 350}
+
+summary (mIL4.reduced)
+p_values <- c(summary(mIL4.reduced)$coefficients[,4])
+p_values <- as.data.frame(p_values) %>% -log10(p_values) %>% rownames_to_column(var = "Y")
+p_values
+p_values <- p_values [-1, ] %>% arrange (p_values) %>% mutate(Y=factor(Y, levels=Y)) 
+p_values
+p_values <- ggplot(p_values, aes(x=Y, y=p_values)) + geom_col(color="darkblue", fill="#E69F00", width = 0.5) + theme(legend.text = element_text(colour="black", size=35)) +  theme(legend.title = element_text(colour="black", size=35)) + labs(y = "-log p_value", x = "IL4 Model") + theme(axis.title.x = element_text(size = 35)) + theme(axis.title.y = element_text(size = 35)) +theme(axis.title.y = element_text(size = 35)) + theme_bw(base_size = 35) + theme(legend.position = "top") + coord_flip() 
+p_values
+ggsave("p.values.IL4.reduced.pdf",units="in", width=12, height=12, dpi=350)
+
+summary (mIL6.reduced)
+p_values <- c(summary(mIL6.reduced)$coefficients[,4])
+p_values <- as.data.frame(p_values) %>% -log10(p_values) %>% rownames_to_column(var = "Y")
+p_values
+p_values <- p_values [-1, ] %>% arrange (p_values) %>% mutate(Y=factor(Y, levels=Y)) 
+p_values
+p_values <- ggplot(p_values, aes(x=Y, y=p_values)) + geom_col(color="darkblue", fill="#E69F00", width = 0.5) + theme(legend.text = element_text(colour="black", size=35)) +  theme(legend.title = element_text(colour="black", size=35)) + labs(y = "-log p_value", x = "IL6 Model") + theme(axis.title.x = element_text(size = 35)) + theme(axis.title.y = element_text(size = 35)) +theme(axis.title.y = element_text(size = 35)) + theme_bw(base_size = 35) + theme(legend.position = "top") + coord_flip() 
+p_values
+ggsave("p.values.IL6.reduced.pdf",units="in", width=12, height=12, dpi=350)
+
+
+summary (mIL8.reduced)
+p_values <- c(summary(mIL8.reduced)$coefficients[,4])
+p_values <- as.data.frame(p_values) %>% -log10(p_values) %>% rownames_to_column(var = "Y")
+p_values
+p_values <- p_values [-1, ] %>% arrange (p_values) %>% mutate(Y=factor(Y, levels=Y)) 
+p_values
+p_values <- ggplot(p_values, aes(x=Y, y=p_values)) + geom_col(color="darkblue", fill="#E69F00", width = 0.5) + theme(legend.text = element_text(colour="black", size=35)) +  theme(legend.title = element_text(colour="black", size=35)) + labs(y = "-log p_value", x = "IL8 Model") + theme(axis.title.x = element_text(size = 35)) + theme(axis.title.y = element_text(size = 35)) +theme(axis.title.y = element_text(size = 35)) + theme_bw(base_size = 35) + theme(legend.position = "top") + coord_flip() 
+p_values
+ggsave("p.values.IL8.reduced.pdf",units="in", width=12, height=12, dpi=350)
+```
+
+
+
+```{r}
+m1 <- lm (data.normalize$IL.10 ~ covariate_hyaluronic + covariate_cytokine + data.normalize$TNF.alpha)
+summary (m1)
+
+m1 <- lm (data.normalize$IL.4 ~ covariate_hyaluronic + covariate_cytokine + data.normalize$TNF.alpha)
+summary (m1)
+
+m1 <- lm (data.normalize$IL.6 ~ covariate_hyaluronic + covariate_cytokine + data.normalize$TNF.alpha)
+summary (m1)
+
+m1 <- lm (data.normalize$IL.8 ~ covariate_hyaluronic + covariate_cytokine + data.normalize$TNF.alpha)
+summary (m1)
+```
+
+```{r}
+mIL10 <- lm (data.normalize$IL.10 ~ covariate_hyaluronic + covariate_cytokine +  data.normalize$TNF.alpha+covariate_cytokine*covariate_hyaluronic)
+summary (mIL10)
+
+mIL4 <- lm (data.normalize$IL.4 ~ covariate_hyaluronic + covariate_cytokine + data.normalize$TNF.alpha + covariate_cytokine*covariate_hyaluronic)
+summary (mIL4)
+
+mIL6 <- lm (data.normalize$IL.6 ~ covariate_hyaluronic + covariate_cytokine + data.normalize$TNF.alpha+ covariate_cytokine*covariate_hyaluronic)
+summary (mIL6)
+
+mIL8 <- lm (data.normalize$IL.8 ~ covariate_hyaluronic + covariate_cytokine + data.normalize$TNF.alpha + covariate_cytokine*covariate_hyaluronic)
+summary (mIL8)
+
+```
+```{r fig.width=12, fig.height=12, fig.fullwidth=TRUE, dpi = 350}
+
+summary (mIL4)
+p_values <- c(summary(mIL4)$coefficients[,4])
+p_values <- as.data.frame(p_values) %>% -log10(p_values) %>% rownames_to_column(var = "Y")
+p_values
+p_values <- p_values [-1, ] %>% arrange (p_values) %>% mutate(Y=factor(Y, levels=Y)) 
+p_values
+p_values <- ggplot(p_values, aes(x=Y, y=p_values)) + geom_col(color="darkblue", fill="#E69F00", width = 0.5) + theme(legend.text = element_text(colour="black", size=35)) +  theme(legend.title = element_text(colour="black", size=35)) + labs(y = "-log p_value", x = "IL4 Model") + theme(axis.title.x = element_text(size = 35)) + theme(axis.title.y = element_text(size = 35)) +theme(axis.title.y = element_text(size = 35)) + theme_bw(base_size = 35) + theme(legend.position = "top") + coord_flip() 
+p_values
+ggsave("p.values.IL4.pdf",units="in", width=12, height=12, dpi=350)
+
+summary (mIL6)
+p_values <- c(summary(mIL6)$coefficients[,4])
+p_values <- as.data.frame(p_values) %>% -log10(p_values) %>% rownames_to_column(var = "Y")
+p_values
+p_values <- p_values [-1, ] %>% arrange (p_values) %>% mutate(Y=factor(Y, levels=Y)) 
+p_values
+p_values <- ggplot(p_values, aes(x=Y, y=p_values)) + geom_col(color="darkblue", fill="#E69F00", width = 0.5) + theme(legend.text = element_text(colour="black", size=35)) +  theme(legend.title = element_text(colour="black", size=35)) + labs(y = "-log p_value", x = "IL6 Model") + theme(axis.title.x = element_text(size = 35)) + theme(axis.title.y = element_text(size = 35)) +theme(axis.title.y = element_text(size = 35)) + theme_bw(base_size = 35) + theme(legend.position = "top") + coord_flip() 
+p_values
+ggsave("p.values.IL6.pdf",units="in", width=12, height=12, dpi=350)
+
+
+summary (mIL8)
+p_values <- c(summary(mIL8)$coefficients[,4])
+p_values <- as.data.frame(p_values) %>% -log10(p_values) %>% rownames_to_column(var = "Y")
+p_values
+p_values <- p_values [-1, ] %>% arrange (p_values) %>% mutate(Y=factor(Y, levels=Y)) 
+p_values
+p_values <- ggplot(p_values, aes(x=Y, y=p_values)) + geom_col(color="darkblue", fill="#E69F00", width = 0.5) + theme(legend.text = element_text(colour="black", size=35)) +  theme(legend.title = element_text(colour="black", size=35)) + labs(y = "-log p_value", x = "IL8 Model") + theme(axis.title.x = element_text(size = 35)) + theme(axis.title.y = element_text(size = 35)) +theme(axis.title.y = element_text(size = 35)) + theme_bw(base_size = 35) + theme(legend.position = "top") + coord_flip() 
+p_values
+ggsave("p.values.IL8.pdf",units="in", width=12, height=12, dpi=350)
+```
+
+```{r}
+sessionInfo()
+```
